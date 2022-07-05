@@ -15,7 +15,10 @@
     <title>Menu</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
+    <link rel="stylesheet" href="Virtual_Select/virtual-select.min.css">
+    <script src="Virtual_Select/virtual-select.min.js"></script>
+    <link rel="stylesheet" href="Virtual_Select/tooltip.min.css">
+    <script src="Virtual_Select/tooltip.min.js"></script>
 <body>
 <header>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -65,11 +68,12 @@
 
                     if($_GET['search'])
                     {
-                        $query = $co->prepare("SELECT * FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE libelle = :libelle OR libelle_alb = :libelle OR firstname = :libelle OR lastname = :libelle");
+                        $query = $co->prepare("SELECT DISTINCT id_son_fusion, id_son, duree, libelle_alb, libelle, fichier FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE libelle = :libelle OR libelle_alb = :libelle OR firstname = :libelle OR lastname = :libelle");
 
                         $query->bindParam(':libelle', $_GET['search']);
 
                         $query->execute();
+
                     }
                     else
                     {
@@ -93,7 +97,7 @@
     </nav>
 </header>
 <div class="container">
-    <h3>Résultat(s) trouvé(s) <?php if($_GET['search']) { ?> pour "<?php echo $_GET['search']; ?>" <?php } else { echo "en globalité"; } ?> : <?php echo count($result) ?></h3>
+    <h3>Résultat(s) trouvé(s) <?php if($_GET['search'] && $_GET['count']) { ?> pour "<?php echo $_GET['search']; ?>" <?php } else { echo "en globalité"; } ?> : <?php echo count($result) ?></h3>
 <div class="text-center">
     <?php
     include_once 'db/fonctions.php';
@@ -101,12 +105,11 @@
     $co = Connexionbdd();
 
 
-        $query = $co->prepare("SELECT * FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE CONCAT(libelle, libelle_alb, firstname, lastname) = :libelle");
+        $query = $co->prepare("SELECT DISTINCT id_son_fusion, id_son, duree, libelle_alb, libelle, fichier FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE libelle = :libelle OR libelle_alb = :libelle OR firstname = :libelle OR lastname = :libelle");
 
         $query->bindParam(':libelle', $_GET['search']);
 
         $query->execute();
-
 
         if($query->rowCount() == 0) {
 
@@ -117,7 +120,7 @@
                 if($_GET['count'] == "")
                 {
                     $keyword = "%".$search."%";
-                    $query = $co->prepare("SELECT * FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE CONCAT(libelle, libelle_alb, firstname, lastname) LIKE :like ORDER BY id_son ".$_GET['filter']."");
+                    $query = $co->prepare("SELECT DISTINCT id_son_fusion, id_son, duree, libelle_alb, libelle, fichier FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE CONCAT(libelle, libelle_alb, firstname, lastname) LIKE :like ORDER BY id_son ".$_GET['filter']."");
                     $query->bindParam(':like', $keyword, PDO::PARAM_STR);
 
                     $query->execute();
@@ -125,7 +128,7 @@
                 else
                 {
                     $keyword = "%".$search."%";
-                    $query = $co->prepare("SELECT * FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE CONCAT(libelle, libelle_alb, firstname, lastname) LIKE :like ORDER BY id_son ".$_GET['filter']." LIMIT ".$_GET['count']."");
+                    $query = $co->prepare("SELECT DISTINCT id_son_fusion, id_son, duree, libelle_alb, libelle, fichier FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE CONCAT(libelle, libelle_alb, firstname, lastname) LIKE :like ORDER BY id_son ".$_GET['filter']." LIMIT ".$_GET['count']."");
                     $query->bindParam(':like', $keyword, PDO::PARAM_STR);
 
                     $query->execute();
@@ -253,8 +256,9 @@
                     </div>
                     <div class="mb-3">
                         <label for="artiste" class="form-label" style="transform: translate(0, 6px);">Artiste(s)</label>
-                        <input class="form-control" id="artist" name="artist" type="text" onkeyup="search(this.value)">
-                        <select multiple name="artiste[]" class="form-control" id="content">
+                    </div>
+                    <div class="mb-3">
+                        <select multiple name="artiste" id="content" placeholder="Rechercher un artiste" data-search="true" data-silent-initial-value-set="true">
                             <?php
                             $query = $co->prepare("SELECT * FROM artiste");
 
@@ -263,36 +267,20 @@
                             $result = $query->fetchAll();
 
                             foreach($result as $row) {
-                                echo "<option value=" . $row['id'] . ">" . $row['firstname'] . " " . $row['lastname'] . "</option>";
+                                ?>
+                            <option value="<?php echo $row['id']; ?>"><?php echo $row['firstname'] . " " . $row['lastname'] ?></option>
+                            <?php
                             }
 
                             ?>
-                            <script>
-                                let content = document.getElementById('content');
-
-                                function search(mot){
-                                    if (mot.length == ""){
-                                        content.innerHTML = "<?php
-                                            foreach($result as $row) {
-                                                echo "<option value=" . $row['id'] . ">" . $row['firstname'] . " " . $row['lastname'] . "</option>";
-                                            }
-
-                                            ?>"
-                                    }
-                                    else {
-                                        let XML = new XMLHttpRequest();
-                                        XML.onreadystatechange = function(){
-                                            if (XML.readyState == 4 && XML.status == 200) {
-                                                content.innerHTML = XML.responseText;
-                                            }
-                                        };
-
-                                        XML.open('GET', 'search.php?data='+mot, true);
-                                        XML.send();
-                                    }
-                                }
-                            </script>
                         </select>
+                        <script>
+                            VirtualSelect.init({
+                                ele: '#content',
+                                multiple: true,
+                                showValueAsTags: true,
+                            });
+                        </script>
                         <a href="">Ajouter un(e) artiste</a>
                     </div>
                     <div class="mb-3">

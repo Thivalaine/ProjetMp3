@@ -11,6 +11,8 @@ if(isset($_POST['add']))
         $duree = $_POST['duree'];
         $artiste = $_POST['artiste'];
 
+        $artiste = explode(",", $artiste);
+
         // il s'agit du nom de l'image
         $img_name = $_FILES['fichier']['name'];
         // ici il s'agit de la taille de l'image
@@ -76,7 +78,10 @@ if(isset($_POST['add']))
 
                         $query->execute();
                     }
+                    $artiste = implode(",", $artiste);
                     $libelle = $duree = $album = $artiste = $new_img_name = "";
+                    echo('<meta http-equiv="refresh" content=0>');
+
 
 
                 }
