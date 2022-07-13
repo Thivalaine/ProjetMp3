@@ -19,6 +19,7 @@
     <script src="Virtual_Select/virtual-select.min.js"></script>
     <link rel="stylesheet" href="Virtual_Select/tooltip.min.css">
     <script src="Virtual_Select/tooltip.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
 <body>
 <header>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -82,6 +83,39 @@
                         $query->execute();
                     }
 
+                    if($query->rowCount() == 0) {
+
+                        $search = htmlspecialchars($_GET['search']);
+
+                        if($_GET['filter'] == "ASC" || $_GET['filter'] == "DESC")
+                        {
+                            if($_GET['count'] == "")
+                            {
+                                $keyword = "%".$search."%";
+                                $query = $co->prepare("SELECT DISTINCT id_son_fusion, id_son, duree, libelle_alb, libelle, fichier FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE CONCAT(libelle, libelle_alb, firstname, lastname) LIKE :like ORDER BY id_son ".$_GET['filter']."");
+                                $query->bindParam(':like', $keyword, PDO::PARAM_STR);
+
+                                $query->execute();
+                            }
+                            else
+                            {
+                                $keyword = "%".$search."%";
+                                $query = $co->prepare("SELECT DISTINCT id_son_fusion, id_son, duree, libelle_alb, libelle, fichier FROM album INNER JOIN son ON album.id = son.album INNER JOIN artiste_son ON son.id_son = artiste_son.id_son_fusion INNER JOIN artiste ON artiste_son.id_artiste = artiste.id WHERE CONCAT(libelle, libelle_alb, firstname, lastname) LIKE :like ORDER BY id_son ".$_GET['filter']." LIMIT ".$_GET['count']."");
+                                $query->bindParam(':like', $keyword, PDO::PARAM_STR);
+
+                                $query->execute();
+                            }
+                        }
+                        /* si c'est différent de ASC et DESC alors on affiche normalement (exemple si l'utilisateur modifie le value d'un des deux et mettent un autre truc */
+                        else
+                        {
+                            $query = $co->prepare("SELECT * FROM son");
+
+                            $query->execute();
+                        }
+
+                    }
+
                     $result = $query->fetchAll();
                     ?>
                     <input type="number" name="count" class="form-control" value="<?php if(empty($_POST['count'])) { echo $_GET['count']; } if(empty($_GET['count']) && $_GET['count'] > 0 || $_GET['count'] == "") {echo count($result); } ?>">
@@ -97,7 +131,7 @@
     </nav>
 </header>
 <div class="container">
-    <h3>Résultat(s) trouvé(s) <?php if($_GET['search'] && $_GET['count']) { ?> pour "<?php echo $_GET['search']; ?>" <?php } else { echo "en globalité"; } ?> : <?php echo count($result) ?></h3>
+    <h4 class="text-muted">Résultat(s) trouvé(s) <?php if($_GET['search'] && $_GET['count']) { ?> pour "<?php echo $_GET['search']; ?>" <?php } else { echo "en globalité"; } ?> : <?php echo count($result) ?></h4>
 <div class="text-center">
     <?php
     include_once 'db/fonctions.php';
@@ -155,7 +189,7 @@
                 <th scope="col">#</th>
                 <th scope="col">Libellé</th>
                 <th scope="col">Album</th>
-                <th scope="col">Auteur</th>
+                <th scope="col">Auteur(s)</th>
                 <th scope="col">Durée</th>
                 <th scope="col">Action</th>
             </tr>
@@ -249,7 +283,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
             <div class="modal-body">
-                <form action="accueil.php" method="POST" enctype="multipart/form-data">
+                <form action="accueil.php?count=&filter=ASC&search=" method="POST" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label for="libelle" class="form-label">Libellé</label>
                         <input type="text" name="libelle" class="form-control" id="libelle">
@@ -281,26 +315,37 @@
                                 showValueAsTags: true,
                             });
                         </script>
-                        <a href="">Ajouter un(e) artiste</a>
+                        <button type="button" class="btn btn-primary" onclick="openModal()" data-bs-toggle="modal">
+                            Ajouter un(e) artiste
+                        </button>
                     </div>
                     <div class="mb-3">
-                        <label for="album" class="form-label">Album</label>
-                        <select name="album[]" class="form-control">
-                            <?php
-                                $query = $co->prepare("SELECT * FROM album");
+                        <div class="row">
+                            <label for="album" class="form-label">Album</label>
+                            <div class="col">
+                                <select name="album[]" class="form-control">
+                                    <?php
+                                    $query = $co->prepare("SELECT * FROM album");
 
-                                $query->execute();
+                                    $query->execute();
 
-                                $result = $query->fetchAll();
+                                    $result = $query->fetchAll();
 
-                                foreach($result as $row)
-                                {
+                                    foreach($result as $row)
+                                    {
+                                        ?>
+                                        <option value="<?php echo $row['id']; ?>"><?php echo $row['libelle_alb'] ?></option>
+                                        <?php
+                                    }
                                     ?>
-                                    <option value="<?php echo $row['id']; ?>"><?php echo $row['libelle_alb'] ?></option>
-                            <?php
-                                }
-                            ?>
-                        </select>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <button type="button" class="btn btn-primary" onclick="openModalAlbum()" data-bs-toggle="modal">
+                                    Ajouter un album
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="duree" class="form-label">Durée</label>
@@ -322,6 +367,88 @@
         </div>
     </div>
 </div>
+<!-- ajout d'un artiste -->
+<div class="modal fade" tabindex="-1" id="add_artist" aria-labelledby="add_artist" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="add_artist">Ajout d'un artiste</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="firstname" class="form-label">Prénom</label>
+                        <input type="text" class="form-control" name="firstname" id="firstname" aria-describedby="firstnameHelp">
+                        <div id="firstnameHelp" class="form-text">Mettez le prénom de l'auteur.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="lastname" class="form-label">Nom de famille</label>
+                        <input type="text" class="form-control" id="lastname" name="lastname" aria-describedby="lastnameHelp">
+                        <div id="lastnameHelp" class="form-text">Mettez le nom de l'auteur.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" name="add_artist" onclick="close()">Ajouter</button>
+                </form>
+                <?php
+                include 'add_artist.php';
+                ?>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Revenir à l'ajout</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ajout d'un album -->
+<div class="modal fade" tabindex="-1" id="add_album" aria-labelledby="add_artist" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="add_album">Ajout d'un album</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="album" class="form-label">Libellé</label>
+                        <input type="text" class="form-control" name="libelle_alb" id="album" aria-describedby="libelleHelp">
+                        <div id="libelleHelp" class="form-text">Mettez le nom de l'album.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date_de_parution" class="form-label">Date de parution</label>
+                        <input type="date" name="date_de_parution" class="form-control" id="date_de_parution">
+                    </div>
+                    <button type="submit" class="btn btn-primary" name="add_album" onclick="close()">Ajouter</button>
+                </form>
+                <?php
+                include 'add_album.php';
+                ?>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModalAlbum()">Revenir à l'ajout</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+
+    function openModal(){
+        $('#add_artist').modal('show');
+        $('#ajout_son').css("display", "block")
+    }
+
+    function closeModal(){
+        $('#ajout_son').modal('show')
+    }
+
+    function closeModalAlbum(){
+        $('#ajout_son').modal('show')
+    }
+
+    function openModalAlbum(){
+        $('#add_album').modal('show');
+    }
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.5/dist/umd/popper.min.js" integrity="sha384-Xe+8cL9oJa6tN/veChSP7q+mnSPaj5Bcu9mPX5F5xIGE0DVittaqT5lorf0EI7Vk" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.min.js" integrity="sha384-kjU+l4N0Yf4ZOJErLsIcvOU2qSb74wXpOhqTvwVx3OElZRweTnQ6d31fXEoRD1Jy" crossorigin="anonymous"></script>
 </body>
